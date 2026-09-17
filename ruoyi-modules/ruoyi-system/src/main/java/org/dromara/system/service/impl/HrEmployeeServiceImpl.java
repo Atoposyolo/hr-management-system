@@ -17,6 +17,10 @@ import org.dromara.system.domain.vo.HrEmployeeVo;
 import org.dromara.system.domain.HrEmployee;
 import org.dromara.system.mapper.HrEmployeeMapper;
 import org.dromara.system.service.IHrEmployeeService;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,6 +34,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+
 
 
 /**
@@ -107,6 +112,7 @@ public class HrEmployeeServiceImpl implements IHrEmployeeService {
      * @return 是否新增成功
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Boolean insertByBo(HrEmployeeBo bo) {
         HrEmployee add = MapstructUtils.convert(bo, HrEmployee.class);
         validEntityBeforeSave(add);
@@ -114,7 +120,12 @@ public class HrEmployeeServiceImpl implements IHrEmployeeService {
         if (flag) {
             bo.setId(add.getId());
             // 新增成功后清除统计缓存
-            RedisUtils.deleteObject(STAT_CACHE_KEY);
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    RedisUtils.deleteObject(STAT_CACHE_KEY);
+                }
+            });
         }
         return flag;
     }
@@ -126,13 +137,19 @@ public class HrEmployeeServiceImpl implements IHrEmployeeService {
      * @return 是否修改成功
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Boolean updateByBo(HrEmployeeBo bo) {
         HrEmployee update = MapstructUtils.convert(bo, HrEmployee.class);
         validEntityBeforeSave(update);
         boolean success = hrEmployeeMapper.updateById(update) > 0;
         if (success) {
             // 数据库更新成功后清除统计缓存
-            RedisUtils.deleteObject(STAT_CACHE_KEY);
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    RedisUtils.deleteObject(STAT_CACHE_KEY);
+                }
+            });
         }
         return success;
     }
@@ -163,6 +180,7 @@ public class HrEmployeeServiceImpl implements IHrEmployeeService {
      * @return 是否删除成功
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Boolean deleteWithValidByIds(Collection<Long> ids, Boolean isValid) {
         if (isValid) {
             // 可在此扩展删除前业务校验
@@ -170,7 +188,12 @@ public class HrEmployeeServiceImpl implements IHrEmployeeService {
         boolean success = hrEmployeeMapper.deleteByIds(ids) > 0;
         if (success) {
             // 数据库删除成功后，清除统计缓存，下次查询自动重建（Cache-Aside）
-            RedisUtils.deleteObject(STAT_CACHE_KEY);
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    RedisUtils.deleteObject(STAT_CACHE_KEY);
+                }
+            });
         }
         return success;
     }
