@@ -1,37 +1,31 @@
 package org.dromara.system.service.impl;
 
-import cn.hutool.core.util.ObjectUtil;
-import org.dromara.common.core.exception.ServiceException;
-import org.dromara.common.core.utils.MapstructUtils;
-import org.dromara.common.core.utils.StringUtils;
-import org.dromara.common.core.domain.PageResult;
-import org.dromara.common.mybatis.core.page.PageQuery;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import cn.hutool.core.convert.Convert;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import org.dromara.common.mybatis.core.query.QueryBuilder;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-import org.dromara.system.domain.bo.HrEmployeeBo;
-import org.dromara.system.domain.vo.HrEmployeeVo;
+import org.dromara.common.core.domain.PageResult;
+import org.dromara.common.core.exception.ServiceException;
+import org.dromara.common.core.utils.MapstructUtils;
+import org.dromara.common.mybatis.core.page.PageQuery;
+import org.dromara.common.mybatis.core.query.QueryBuilder;
+import org.dromara.common.redis.utils.RedisUtils;
 import org.dromara.system.domain.HrEmployee;
+import org.dromara.system.domain.bo.HrEmployeeBo;
+import org.dromara.system.domain.vo.HrEmployeeStatVo;
+import org.dromara.system.domain.vo.HrEmployeeVo;
 import org.dromara.system.mapper.HrEmployeeMapper;
 import org.dromara.system.service.IHrEmployeeService;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Collection;
-import org.dromara.common.redis.utils.RedisUtils;
-import com.baomidou.mybatisplus.core.toolkit.Wrappers;
-import cn.hutool.core.convert.Convert;
-import org.dromara.system.domain.vo.HrEmployeeStatVo;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
