@@ -1,5 +1,6 @@
 package org.dromara.system.controller;
 
+import cn.dev33.satoken.annotation.SaCheckPermission;
 import lombok.RequiredArgsConstructor;
 import org.dromara.common.core.domain.R;
 import org.dromara.system.domain.vo.HrEmployeeVo;
@@ -18,7 +19,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import java.time.format.DateTimeFormatter;
 
-@SaIgnore
 @RestController
 @RequestMapping("/system/hr/ai")
 @RequiredArgsConstructor
@@ -35,6 +35,7 @@ public class HrAiDocumentController {
      * @param docType 文档类型：cert=在职证明，comment=转正评语，jd=招聘JD
      */
     @GetMapping("/genDoc")
+    @SaCheckPermission("system:employee:query")
     public R<String> genDoc(@RequestParam Long empId, @RequestParam String docType) {
         HrEmployeeVo emp = hrEmployeeService.queryById(empId);
         if (emp == null) {

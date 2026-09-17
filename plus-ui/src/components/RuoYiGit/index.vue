@@ -5,7 +5,7 @@
 </template>
 
 <script setup lang="ts">
-const url = ref('https://gitee.com/dromara/RuoYi-Vue-Plus');
+const url = ref('https://github.com/Atoposyolo/hr-management-system');
 
 function goto() {
   window.open(url.value);
