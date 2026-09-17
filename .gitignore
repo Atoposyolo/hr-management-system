@@ -53,3 +53,6 @@ nbdist/
 
 application-local.yml
 application-ga.yml
+
+plus-ui/node_modules/
+plus-ui/dist/
