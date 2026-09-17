@@ -16,7 +16,7 @@ import java.util.Map;
 
 @Slf4j
 @Component
-public class ZhipuAiClient {
+public class OpenAiCompatibleClient {
 
     private final HttpClient httpClient = HttpClient.newBuilder()
         .connectTimeout(Duration.ofSeconds(30))
@@ -24,13 +24,13 @@ public class ZhipuAiClient {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @Value("${ai.zhipu.api-key}")
+    @Value("${SILICON_API_KEY}")
     private String apiKey;
 
-    @Value("${ai.zhipu.api-url}")
+    @Value("${SILICON_API_URL:https://api.siliconflow.cn/v1/chat/completions}")
     private String apiUrl;
 
-    @Value("${ai.zhipu.model}")
+    @Value("${SILICON_API_MODEL:Qwen/Qwen2.5-7B-Instruct}")
     private String model;
 
     /**
@@ -64,8 +64,8 @@ public class ZhipuAiClient {
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
-            // 打印智谱原始返回，便于排查问题
-            log.info("智谱AI原始返回: {}", response.body());
+            // 打印AI原始返回，便于排查问题
+            log.info("AI原始返回：{}", response.body());
 
             JsonNode message = objectMapper.readTree(response.body())
                 .path("choices").path(0).path("message");
@@ -75,7 +75,7 @@ public class ZhipuAiClient {
             }
             return content;
         } catch (Exception e) {
-            log.error("调用智谱AI接口异常", e);
+            log.error("调用AI接口异常", e);
             throw new RuntimeException("AI文档生成失败，请稍后重试");
         }
     }

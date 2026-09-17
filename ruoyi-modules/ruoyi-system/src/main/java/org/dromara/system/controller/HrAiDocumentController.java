@@ -5,17 +5,15 @@ import lombok.RequiredArgsConstructor;
 import org.dromara.common.core.domain.R;
 import org.dromara.system.domain.vo.HrEmployeeVo;
 import org.dromara.system.service.IHrEmployeeService;
-import org.dromara.system.util.ZhipuAiClient;
+import org.dromara.system.util.OpenAiCompatibleClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import cn.dev33.satoken.annotation.SaIgnore;
 import org.dromara.system.mapper.SysDeptMapper;
 import org.dromara.system.mapper.SysPostMapper;
 import org.dromara.system.domain.SysDept;
 import org.dromara.system.domain.SysPost;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import java.time.format.DateTimeFormatter;
 
@@ -24,7 +22,7 @@ import java.time.format.DateTimeFormatter;
 @RequiredArgsConstructor
 public class HrAiDocumentController {
 
-    private final ZhipuAiClient zhipuAiClient;
+    private final OpenAiCompatibleClient zhipuAiClient;
     private final IHrEmployeeService hrEmployeeService;
     private final SysDeptMapper sysDeptMapper;
     private final SysPostMapper sysPostMapper;
