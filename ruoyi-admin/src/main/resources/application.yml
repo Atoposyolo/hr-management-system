@@ -383,3 +383,10 @@ spring.ai.mcp:
             - -y
             - '@modelcontextprotocol/server-filesystem'
             - D:/data
+
+# AI智谱配置
+ai:
+  zhipu:
+    api-key: ${SILICON_API_KEY:}
+    api-url: https://api.siliconflow.cn/v1/chat/completions
+    model: Qwen/Qwen2.5-7B-Instruct
