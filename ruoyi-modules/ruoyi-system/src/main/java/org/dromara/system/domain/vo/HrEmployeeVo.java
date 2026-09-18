@@ -1,19 +1,16 @@
 package org.dromara.system.domain.vo;
 
-import java.time.LocalDateTime;
-import com.fasterxml.jackson.annotation.JsonFormat;
-import org.dromara.system.domain.HrEmployee;
+import io.github.linpeilie.annotations.AutoMapper;
+import lombok.Data;
 import org.apache.fesod.sheet.annotation.ExcelIgnoreUnannotated;
 import org.apache.fesod.sheet.annotation.ExcelProperty;
 import org.dromara.common.excel.annotation.ExcelDictFormat;
 import org.dromara.common.excel.convert.ExcelDictConvert;
+import org.dromara.common.sensitive.annotation.Sensitive;
+import org.dromara.common.sensitive.core.SensitiveStrategy;
 import org.dromara.common.translation.annotation.Translation;
 import org.dromara.common.translation.constant.TransConstant;
-import io.github.linpeilie.annotations.AutoMapper;
-import lombok.Data;
-import org.dromara.common.translation.annotation.Translation;
-import org.dromara.common.translation.constant.TransConstant;
-
+import org.dromara.system.domain.HrEmployee;
 
 import java.io.Serial;
 import java.io.Serializable;
@@ -74,21 +71,24 @@ public class HrEmployeeVo implements Serializable {
     private String deptName;
 
     /**
-     * 手机号码
+     * 手机号码（持有编辑权限可见明文，其余场景脱敏）
      */
+    @Sensitive(strategy = SensitiveStrategy.PHONE, perms = "system:employee:edit")
     @ExcelProperty(value = "手机号码")
     private String phone;
 
 
     /**
-     * 邮箱
+     * 邮箱（持有编辑权限可见明文，其余场景脱敏）
      */
+    @Sensitive(strategy = SensitiveStrategy.EMAIL, perms = "system:employee:edit")
     @ExcelProperty(value = "邮箱")
     private String email;
 
     /**
-     * 身份证号
+     * 身份证号（持有编辑权限可见明文，其余场景脱敏）
      */
+    @Sensitive(strategy = SensitiveStrategy.ID_CARD, perms = "system:employee:edit")
     @ExcelProperty(value = "身份证号")
     private String idCard;
 
