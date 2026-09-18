@@ -18,6 +18,7 @@ import org.dromara.system.domain.vo.HrEmployeeStatVo;
 import org.dromara.system.domain.vo.HrEmployeeVo;
 import org.dromara.system.mapper.HrEmployeeMapper;
 import org.dromara.system.service.IHrEmployeeService;
+import org.redisson.api.RLock;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -28,7 +29,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-
+import java.util.concurrent.TimeUnit;
 
 
 /**
@@ -48,6 +49,16 @@ public class HrEmployeeServiceImpl implements IHrEmployeeService {
      * 员工统计数据的 Redis 缓存 key
      */
     private static final String STAT_CACHE_KEY = "hr:employee:statistics";
+
+    /**
+     * 统计缓存重建的分布式锁 key
+     */
+    private static final String STAT_CACHE_LOCK_KEY = "hr:employee:statistics:lock";
+
+    /**
+     * 等待缓存重建锁的最长时间（秒）
+     */
+    private static final long STAT_LOCK_WAIT_SECONDS = 10L;
 
 
     /**
@@ -94,6 +105,8 @@ public class HrEmployeeServiceImpl implements IHrEmployeeService {
             .eqIfText(HrEmployee::getEmpNo, bo.getEmpNo())
             .likeIfText(HrEmployee::getEmpName, bo.getEmpName())
             .eqIfPresent(HrEmployee::getDeptId, bo.getDeptId())
+            .eqIfText(HrEmployee::getPhone, bo.getPhone())
+            .eqIfText(HrEmployee::getStatus, bo.getStatus())
             .betweenParams(HrEmployee::getEntryDate, params, "beginEntryDate", "endEntryDate")
             .orderByAsc(HrEmployee::getId)
             .build();
@@ -114,12 +127,7 @@ public class HrEmployeeServiceImpl implements IHrEmployeeService {
         if (flag) {
             bo.setId(add.getId());
             // 新增成功后清除统计缓存
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    RedisUtils.deleteObject(STAT_CACHE_KEY);
-                }
-            });
+            registerStatisticsCacheEvict();
         }
         return flag;
     }
@@ -138,12 +146,7 @@ public class HrEmployeeServiceImpl implements IHrEmployeeService {
         boolean success = hrEmployeeMapper.updateById(update) > 0;
         if (success) {
             // 数据库更新成功后清除统计缓存
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    RedisUtils.deleteObject(STAT_CACHE_KEY);
-                }
-            });
+            registerStatisticsCacheEvict();
         }
         return success;
     }
@@ -155,6 +158,7 @@ public class HrEmployeeServiceImpl implements IHrEmployeeService {
      */
     private void validEntityBeforeSave(HrEmployee entity) {
         // 校验工号是否唯一：同工号、且不是当前记录，即判定为重复
+        // 数据库层还有 (emp_no, del_flag) 联合唯一索引兜底，防止并发下的重复提交
         boolean exists = hrEmployeeMapper.lambda()
             .eq(HrEmployee::getEmpNo, entity.getEmpNo())
             .neIfPresent(HrEmployee::getId, entity.getId())
@@ -182,12 +186,7 @@ public class HrEmployeeServiceImpl implements IHrEmployeeService {
         boolean success = hrEmployeeMapper.deleteByIds(ids) > 0;
         if (success) {
             // 数据库删除成功后，清除统计缓存，下次查询自动重建（Cache-Aside）
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    RedisUtils.deleteObject(STAT_CACHE_KEY);
-                }
-            });
+            registerStatisticsCacheEvict();
         }
         return success;
     }
@@ -196,17 +195,50 @@ public class HrEmployeeServiceImpl implements IHrEmployeeService {
     @Override
     public HrEmployeeStatVo getStatistics() {
         // 1.先查 Redis 缓存，命中直接返回
-        String cacheKey = STAT_CACHE_KEY;
-        HrEmployeeStatVo cache = RedisUtils.getCacheObject(cacheKey);
+        HrEmployeeStatVo cache = RedisUtils.getCacheObject(STAT_CACHE_KEY);
         if (cache != null) {
             return cache;
         }
 
-        // 2.缓存未命中，查数据库做聚合统计
+        // 2.缓存未命中：加 Redisson 分布式锁，只放一个线程回源查库，防止缓存击穿
+        RLock lock = RedisUtils.getClient().getLock(STAT_CACHE_LOCK_KEY);
+        boolean locked = false;
+        try {
+            locked = lock.tryLock(STAT_LOCK_WAIT_SECONDS, TimeUnit.SECONDS);
+            if (locked) {
+                // 双重检查：拿到锁后可能前一个持锁线程已经重建好缓存
+                cache = RedisUtils.getCacheObject(STAT_CACHE_KEY);
+                if (cache != null) {
+                    return cache;
+                }
+                return loadStatisticsFromDb();
+            }
+
+            // 3.未抢到锁：再读一次缓存（等待期间持锁线程可能已重建完成）；仍未命中则降级直接查库，保证可用性
+            cache = RedisUtils.getCacheObject(STAT_CACHE_KEY);
+            if (cache != null) {
+                return cache;
+            }
+            log.warn("统计缓存重建锁竞争失败，降级直接查询数据库, lockKey={}", STAT_CACHE_LOCK_KEY);
+            return loadStatisticsFromDb();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new ServiceException("统计查询被中断，请稍后重试");
+        } finally {
+            if (locked && lock.isHeldByCurrentThread()) {
+                lock.unlock();
+            }
+        }
+    }
+
+    /**
+     * 回源数据库做聚合统计，并将结果写入 Redis 缓存
+     */
+    private HrEmployeeStatVo loadStatisticsFromDb() {
         HrEmployeeStatVo stat = new HrEmployeeStatVo();
         stat.setTotal(hrEmployeeMapper.selectCount(Wrappers.<HrEmployee>query()));
 
-        // 2.1 按在职状态分组统计
+        // 按在职状态分组统计
         List<Map<String, Object>> statusMaps = hrEmployeeMapper.selectMaps(
             Wrappers.<HrEmployee>query()
                 .select("status, count(*) as value")
@@ -229,7 +261,7 @@ public class HrEmployeeServiceImpl implements IHrEmployeeService {
         stat.setLeaveCount(leave);
         stat.setStatusStats(statusStats);
 
-        // 2.2 按学历分组统计
+        // 按学历分组统计
         List<Map<String, Object>> eduMaps = hrEmployeeMapper.selectMaps(
             Wrappers.<HrEmployee>query()
                 .select("education, count(*) as value")
@@ -244,8 +276,20 @@ public class HrEmployeeServiceImpl implements IHrEmployeeService {
         }
         stat.setEducationStats(eduStats);
 
-        // 3.写入 Redis，有效期 5 分钟
-        RedisUtils.setCacheObject(cacheKey, stat, Duration.ofMinutes(5));
+        // 写入 Redis，有效期 5 分钟作为兜底
+        RedisUtils.setCacheObject(STAT_CACHE_KEY, stat, Duration.ofMinutes(5));
         return stat;
+    }
+
+    /**
+     * 注册事务同步：在事务成功提交后删除统计缓存，避免事务回滚导致的误删
+     */
+    private void registerStatisticsCacheEvict() {
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                RedisUtils.deleteObject(STAT_CACHE_KEY);
+            }
+        });
     }
 }
