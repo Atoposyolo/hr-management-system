@@ -2,7 +2,6 @@ package org.dromara.system.util;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.dromara.common.core.exception.ServiceException;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,10 +22,12 @@ import java.util.Map;
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class OpenAiCompatibleClient {
 
-    private final ObjectMapper objectMapper;
+    /**
+     * ObjectMapper 初始化完成后线程安全，全局复用一个实例
+     */
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final HttpClient httpClient = HttpClient.newBuilder()
         .connectTimeout(Duration.ofSeconds(30))
@@ -61,7 +62,7 @@ public class OpenAiCompatibleClient {
             bodyMap.put("temperature", 0.3);
             bodyMap.put("stream", false);
 
-            String jsonBody = objectMapper.writeValueAsString(bodyMap);
+            String jsonBody = OBJECT_MAPPER.writeValueAsString(bodyMap);
 
             HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(apiUrl))
@@ -79,7 +80,7 @@ public class OpenAiCompatibleClient {
                 throw new ServiceException("AI服务暂不可用（HTTP " + response.statusCode() + "），请稍后重试");
             }
 
-            JsonNode message = objectMapper.readTree(response.body())
+            JsonNode message = OBJECT_MAPPER.readTree(response.body())
                 .path("choices").path(0).path("message");
             String content = message.path("content").asText("");
             if (content.isBlank()) {
