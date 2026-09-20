@@ -15,6 +15,9 @@
             <el-form-item label="员工姓名" prop="empName">
               <el-input v-model="queryParams.empName" placeholder="请输入员工姓名" clearable @keyup.enter="handleQuery" />
             </el-form-item>
+            <el-form-item label="手机号码" prop="phone">
+              <el-input v-model="queryParams.phone" placeholder="请输入手机号码" clearable @keyup.enter="handleQuery" />
+            </el-form-item>
           <el-form-item label="部门" prop="deptId">
             <el-tree-select
               v-model="queryParams.deptId"
@@ -25,6 +28,16 @@
               clearable
               check-strictly
             />
+          </el-form-item>
+          <el-form-item label="状态" prop="status">
+            <el-select v-model="queryParams.status" placeholder="请选择状态" clearable>
+              <el-option
+                v-for="dict in hr_employee_status"
+                :key="dict.value"
+                :label="dict.label"
+                :value="dict.value"
+              />
+            </el-select>
           </el-form-item>
           <el-form-item label="入职日期" style="width: 308px">
               <el-date-picker
@@ -275,7 +288,9 @@ const data = reactive<PageData<EmployeeForm, EmployeeQuery>>({
     pageSize: 10,
     empNo: undefined,
     empName: undefined,
+    phone: undefined,
     deptId: undefined,
+    status: undefined,
     params: {
       entryDate: undefined,
     }
@@ -436,4 +451,3 @@ const handleAiSubmit = async () => {
   }
 };
 </script>
-

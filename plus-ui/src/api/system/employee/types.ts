@@ -98,9 +98,17 @@ export interface EmployeeQuery extends PageQuery {
    */
   empName?: string;
   /**
+   * 手机号码
+   */
+  phone?: string;
+  /**
    * 部门id
    */
   deptId?: string | number;
+  /**
+   * 状态（0在职 1离职）
+   */
+  status?: string;
   /**
    * 入职日期
    */
