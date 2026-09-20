@@ -24,9 +24,9 @@ create table hr_employee (
   update_time   datetime     default null               comment '更新时间',
   del_flag      int(1)       default 0                  comment '删除标志（0代表存在，其他值代表删除）',
   primary key (id) using btree,
-  -- 工号唯一：与逻辑删除标识组成联合唯一索引，保证在职数据工号不重复，删除后允许同工号重新入职
-  -- 注意：固定删除值下，同工号历史记录最多保留一条；如需保留多条删除记录，可将删除值改为记录主键
-  unique key uk_hr_employee_emp_no (emp_no, del_flag),
+  -- 工号全局唯一：工号是员工在企业内的终身标识，员工离职（逻辑删除）后工号也不复用
+  -- Service 层校验之外由数据库唯一索引兜底，防止并发“先查后插”产生重复工号
+  unique key uk_emp_no (emp_no),
   key idx_hr_employee_dept_id (dept_id),
   key idx_hr_employee_post_id (post_id)
 ) engine=innodb comment='员工表';
